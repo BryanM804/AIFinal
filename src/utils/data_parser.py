@@ -25,19 +25,38 @@ def parse_numbers(file_name):
     return numbers
 
 def parse_faces(file_name):
-    # 60 x 74 arrays
+    # 60 x 70 arrays
+    trans_table = str.maketrans({" ": "0.0", "\n": "0.0", "#": "1.0"})
+    faces = []
+    with open(f"{FACE_PATH}/{file_name}", "r") as file:
+        lines = file.read().splitlines()
+        count = 0
+        face = []
+        for line in lines:
+            count += 1
+            chars = list(line)
+            for char in chars:
+                f = char.translate(trans_table)
+                face.append(f)
+
+            if count == 70:
+                count = 0
+                faces.append(face)
+                face = []
+
+    return faces
     pass
 
 def attach_labels(arr, label_file_name, digits):
     path = f"{DIGIT_PATH}/{label_file_name}" if digits else f"{FACE_PATH}/{label_file_name}"
 
-    new_numbers = []
+    new_data = []
 
     with open(path, "r") as file:
         for x, line in enumerate(file.read().splitlines()):
-            new_numbers.append((arr[x], int(line)))
+            new_data.append((arr[x], int(line)))
 
-    return new_numbers
+    return new_data
 
 def get_labels(label_file_name, digits):
     path = f"{DIGIT_PATH}/{label_file_name}" if digits else f"{FACE_PATH}/{label_file_name}"
@@ -49,11 +68,16 @@ def get_labels(label_file_name, digits):
 
 if __name__ == "__main__":
     # testing
-    parsed_numbers = parse_numbers("trainingimages")
-    labeled_numbers = attach_labels(parsed_numbers, "traininglabels", True)
-    for i in range(28 * 28): # couldnt bother opening a calc (short for calculator)
-        print(labeled_numbers[0][0][i], end="")
-        if i % 28 == 0: print("\n")
+    parsed_data = parse_faces("facedatatrain")
+    labeled_data = attach_labels(parsed_data, "facedatatrainlabels", False)
+    for i in range(60 * 70):
+        print(labeled_data[0][0][i], end="")
+        if i % 60 == 0: print("\n")
+    print(labeled_data[0][1])
 
-    # print(labeled_numbers[0][0])
-    print(labeled_numbers[0][1])
+    # for i in range(28 * 28): # couldnt bother opening a calc (short for calculator)
+    #     print(labeled_numbers[0][0][i], end="")
+    #     if i % 28 == 0: print("\n")
+
+    # # print(labeled_numbers[0][0])
+    # print(labeled_numbers[0][1])
