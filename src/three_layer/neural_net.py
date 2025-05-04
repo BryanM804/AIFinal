@@ -1,9 +1,9 @@
 import numpy as np
-from three_layer.nn_funcs import sigmoid, sigmoid_d, cost
+from three_layer.nn_funcs import *
 
-class DigitNeuralNet():
+class NeuralNet():
 
-    def __init__(self, layer_size, learning_rate=0.1, hidden_layers=2, epochs=10, verbose=False):
+    def __init__(self, layer_size, learning_rate=0.1, hidden_layers=2, epochs=10, output_size=10, verbose=False):
         self.learning_rate = learning_rate
         self.weights = []
         self.biases = []
@@ -15,17 +15,35 @@ class DigitNeuralNet():
         # input, hidden layers, output
         for l in range(self.hidden_layers):
             self.layer_sizes.append(layer_size)
-        self.layer_sizes.append(10)
-        pass
+        self.layer_sizes.append(output_size)
+
+        if output_size > 1:
+            self.cost = cost_CCE
+            self.weight_coef = 0.1
+        else:
+            self.cost = cost_BCE
+            self.weight_coef = 0.015
+
+        return
     
     def forward_propagation(self, training_set):
-        a = np.array(training_set, dtype=np.float32)
+        a = np.atleast_2d(np.array(training_set, dtype=np.float32))
         acts = [a]
         zs = []
-        for w, b in zip(self.weights, self.biases):
+        for i in range(len(self.weights)):
+            w = self.weights[i]
+            b = self.biases[i]
             z = np.dot(a, w) + b
             zs.append(z)
-            a = sigmoid(z)
+            # Use softmax for the output layer
+            # a = sigmoid(z) if i != len(self.weights) - 1 else softmax(z)
+            if self.layer_sizes[-1] > 1:
+                a = relu(z) if i != len(self.weights) - 1 else softmax(z)
+            else:
+                # a = sigmoid(z)
+                # Tried using sigmoid for hidden layers and it just sucked unless you used
+                # a ton of epochs and all of the training data
+                a = relu(z) if i != len(self.weights) - 1 else sigmoid(z)
             acts.append(a)
         return acts, zs
         
@@ -39,16 +57,22 @@ class DigitNeuralNet():
         bias_delta = [0] * l_count
 
         # Compute output layer error
+        y = y if self.layer_sizes[-1] > 1 else y.reshape(-1, 1)
         err = acts[-1] - y
         weight_delta[-1] = np.dot(acts[-2].T, err) / n
-        bias_delta[-1] = np.sum(err, keepdims=True) / n
+        bias_delta[-1] = np.sum(err, axis=0, keepdims=True) / n
 
         # Propagate error backwards through hidden layers
         # Start at last hidden layer, decrement until -1
         for l in range(l_count - 2, -1, -1):
-            err = np.dot(err, self.weights[l + 1].T) * sigmoid_d(zs[l])
+            # Change sigmoid_d/relu_d depending on which is in use in forward pass
+            # relu + softmax is best
+            if self.layer_sizes[-1] > 1:
+                err = np.dot(err, self.weights[l + 1].T) * relu_d(zs[l])
+            else:
+                err = np.dot(err, self.weights[l + 1].T) * sigmoid_d(zs[l])
             weight_delta[l] = np.dot(acts[l].T, err) / n
-            bias_delta[l] = np.sum(err, keepdims=True) / n
+            bias_delta[l] = np.sum(err, axis=0, keepdims=True) / n
 
         # Everything is divided by n since the backpropagation is being done for all
         # of the elements of training data at once.
@@ -59,20 +83,19 @@ class DigitNeuralNet():
     def train(self, training_data, labels):
         # Convert integer labels into vectors for the output of the network
         yarr = np.array(labels, dtype=np.float32)
-        y = np.eye(10)[yarr.astype(int)]
-        print(y)
+        y = np.eye(10)[yarr.astype(int)] if self.layer_sizes[-1] > 1 else np.atleast_2d(yarr).reshape(-1,1)
         # Make random arrays for weights
         # Make arrays for biases
         for i in range(len(self.layer_sizes) - 1):
             # Random matrix of size a, b
             # a = neurons in layer x
             # b = input size of layer x + 1
-            self.weights.append(np.random.randn(self.layer_sizes[i], self.layer_sizes[i+1]) * 0.01)
+            self.weights.append(np.random.randn(self.layer_sizes[i], self.layer_sizes[i+1]) * self.weight_coef)
             self.biases.append(np.zeros((1, self.layer_sizes[i+1])))
 
         for epoch in range(self.epochs):
             acts, zs = self.forward_propagation(training_data)
-            current_cost = cost(y, acts[-1]) # acts[-1] would be the output vector
+            current_cost = self.cost(y, acts[-1]) # acts[-1] would be the output vector
             weight_d, bias_d = self.backpropagation(acts, zs, y)
             
             for i in range(len(self.weights)):
@@ -81,7 +104,8 @@ class DigitNeuralNet():
 
             if self.verbose:
                 print(f"Epoch {epoch + 1}, Cost: {current_cost}")
-        return
+        
+        return self.cost(y, acts[-1]) # Final cost
 
     
     def classify(self, test_data):
