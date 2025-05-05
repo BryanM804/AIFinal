@@ -1,7 +1,8 @@
-
 import utils.data_parser as data_parser
+import utils.result_printer as printer
 import argparse
 import numpy as np
+import time
 import torch
 from pytorch.pytorch_nn import PytorchNeuralNet
 
@@ -31,8 +32,10 @@ if __name__ == "__main__":
         training_faces = data_parser.parse_faces("facedatatrain")
         training_data = data_parser.attach_labels(training_faces, "facedatatrainlabels", False)
 
+    total_start = time.perf_counter()
     for percent in percentages:
         accuracys = []
+        start_time = time.perf_counter()
 
         for i in range(args.reps):
             # Randomly take a percentage of the training data for each rep
@@ -81,10 +84,11 @@ if __name__ == "__main__":
                 else:
                     incorrect_count += 1
 
-            print(f"PyTorch {"Digit" if args.mode == "digit" else "Face"} Neural Network\n------------------")
-            print(f"Trained with {int(percent * 100)}% of training data, learning rate of {args.learningrate}")
-            print(f"Correct: {correct_count}, Incorrect: {incorrect_count} | {correct_count / len(guesses) * 100}%")
+            printer.print_results(args.mode, percent, args.learningrate, correct_count, incorrect_count, len(guesses), pytorch=True)
             accuracys.append(correct_count / len(guesses) * 100)
-        print("-----------------------------------")
-        print(f"Accuracy at {int(percent * 100)}% of training data:\n Mean: {np.mean(accuracys)} Std Deviation: {np.std(accuracys)}")
-        print("-----------------------------------")
+        end_time = time.perf_counter()
+        et = end_time - start_time
+        printer.print_final_results(accuracys, et, percent)
+    total_end = time.perf_counter()
+    total_et = total_end - total_start
+    print(f"Total run time: {total_et:.3f} seconds")
