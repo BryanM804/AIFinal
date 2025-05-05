@@ -43,8 +43,8 @@ class DigitPerceptron():
                     biases_update[y_predict] -= self.learning_rate
                 elif self.verbose:
                     correct_count += 1
-            self.weights += weights_update
-            self.biases += biases_update
+            self.weights += weights_update / len(training_data)
+            self.biases += biases_update / len(training_data)
 
             if self.verbose: print(f"Correct: {correct_count}, Incorrect: {incorrect_count}")
 
